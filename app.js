@@ -23,9 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     selectedDate = formatDateString(today);
     
-    // Register Service Worker for real mobile lock-screen alerts
+    // Register Service Worker (PushAlert unified with ChoreFlow alerts)
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('service-worker.js')
+        navigator.serviceWorker.register('sw.js')
             .then(reg => console.log('Service Worker registered successfully:', reg))
             .catch(err => console.error('Service Worker registration failed:', err));
     }
