@@ -850,29 +850,69 @@ function requestNotificationPermission() {
 
 function triggerTestNotification() {
     if (!("Notification" in window)) {
-        alert("Web Notifications are not supported in this browser.");
+        // Fallback to in-app banner immediately if Notification API is not supported on window (typical for mobile Safari)
+        showInAppNotificationBanner("ChoreFlow Simulated Reminder 🧼", "It is 9:00 PM! Don't forget to track your home meals and dishes today.");
         return;
     }
     
-    if (Notification.permission === "granted") {
-        new Notification("ChoreFlow Test Notification 🧼", {
-            body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
-            icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
-        });
-    } else if (Notification.permission === "denied") {
-        alert("Notification permission has been denied. Please enable notifications in your browser settings to test them.");
-    } else {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                new Notification("ChoreFlow Test Notification 🧼", {
-                    body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
-                    icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
-                });
-            } else {
-                alert("Notification permission request was dismissed or denied.");
-            }
-        });
+    // Wrap in try-catch to handle illegal constructor error on Android Chrome
+    try {
+        if (Notification.permission === "granted") {
+            new Notification("ChoreFlow Test Notification 🧼", {
+                body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
+                icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
+            });
+        } else if (Notification.permission === "denied") {
+            showInAppNotificationBanner("Browser notifications are blocked. Simulated alert:", "Daily Reminder: Don't forget to track your home meals and dishes!");
+        } else {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification("ChoreFlow Test Notification 🧼", {
+                        body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
+                        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
+                    });
+                } else {
+                    showInAppNotificationBanner("Notification permission dismissed. Simulated alert:", "Daily Reminder: Don't forget to track your home meals and dishes!");
+                }
+            });
+        }
+    } catch (e) {
+        // Fallback to in-app simulated banner for mobile browsers throwing constructor errors (e.g., Android Chrome in tabs)
+        showInAppNotificationBanner("ChoreFlow Simulated Reminder 🧼", "It is 9:00 PM! Don't forget to track your home meals and dishes today.");
     }
+}
+
+function showInAppNotificationBanner(title, body) {
+    let banner = document.getElementById('in-app-notification-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'in-app-notification-banner';
+        banner.innerHTML = `
+            <div class="banner-icon">
+                <i class="fa-solid fa-soap logo-icon"></i>
+            </div>
+            <div class="banner-content">
+                <div class="banner-title" id="banner-title-text"></div>
+                <div class="banner-body" id="banner-body-text"></div>
+            </div>
+        `;
+        document.body.appendChild(banner);
+    }
+    
+    document.getElementById('banner-title-text').textContent = title;
+    document.getElementById('banner-body-text').textContent = body;
+    
+    // Force a reflow to restart transition
+    banner.classList.remove('show');
+    banner.getBoundingClientRect();
+    
+    // Add class to trigger CSS animation slide down
+    banner.classList.add('show');
+    
+    // Remove after 5.0 seconds
+    setTimeout(() => {
+        banner.classList.remove('show');
+    }, 5000);
 }
 
 function startNotificationService() {
