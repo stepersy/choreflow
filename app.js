@@ -23,6 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     selectedDate = formatDateString(today);
     
+    // Register Service Worker for real mobile lock-screen alerts
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js')
+            .then(reg => console.log('Service Worker registered successfully:', reg))
+            .catch(err => console.error('Service Worker registration failed:', err));
+    }
+    
     // Check if there is an active session
     const savedUser = localStorage.getItem('choreflow_logged_in_user');
     if (savedUser) {
@@ -850,35 +857,54 @@ function requestNotificationPermission() {
 
 function triggerTestNotification() {
     if (!("Notification" in window)) {
-        // Fallback to in-app banner immediately if Notification API is not supported on window (typical for mobile Safari)
         showInAppNotificationBanner("ChoreFlow Simulated Reminder 🧼", "It is 9:00 PM! Don't forget to track your home meals and dishes today.");
         return;
     }
     
-    // Wrap in try-catch to handle illegal constructor error on Android Chrome
-    try {
-        if (Notification.permission === "granted") {
-            new Notification("ChoreFlow Test Notification 🧼", {
-                body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
-                icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
-            });
-        } else if (Notification.permission === "denied") {
-            showInAppNotificationBanner("Browser notifications are blocked. Simulated alert:", "Daily Reminder: Don't forget to track your home meals and dishes!");
-        } else {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    new Notification("ChoreFlow Test Notification 🧼", {
-                        body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
-                        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
-                    });
-                } else {
-                    showInAppNotificationBanner("Notification permission dismissed. Simulated alert:", "Daily Reminder: Don't forget to track your home meals and dishes!");
-                }
-            });
+    const title = "ChoreFlow Test Notification 🧼";
+    const options = {
+        body: "Success! Real push notification system is working correctly. You'll be reminded daily at 9:00 PM.",
+        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
+        badge: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
+        vibrate: [200, 100, 200]
+    };
+    
+    if (Notification.permission === "granted") {
+        sendRealNotification(title, options);
+    } else if (Notification.permission === "denied") {
+        showInAppNotificationBanner("Browser notifications are blocked. Simulated alert:", "Daily Reminder: Don't forget to track your home meals today!");
+    } else {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                sendRealNotification(title, options);
+            } else {
+                showInAppNotificationBanner("Notification permission request was denied.", "Daily Reminder: Don't forget to track your home meals today!");
+            }
+        });
+    }
+}
+
+function sendRealNotification(title, options) {
+    // 1. Try using Service Worker registration first (this works perfectly on mobile phones!)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(title, options)
+                .catch(err => {
+                    // Fall back to main thread new Notification if service worker fails
+                    try {
+                        new Notification(title, options);
+                    } catch (e) {
+                        showInAppNotificationBanner(title, options.body);
+                    }
+                });
+        });
+    } else {
+        // 2. Fall back to standard Notification constructor on desktop
+        try {
+            new Notification(title, options);
+        } catch (e) {
+            showInAppNotificationBanner(title, options.body);
         }
-    } catch (e) {
-        // Fallback to in-app simulated banner for mobile browsers throwing constructor errors (e.g., Android Chrome in tabs)
-        showInAppNotificationBanner("ChoreFlow Simulated Reminder 🧼", "It is 9:00 PM! Don't forget to track your home meals and dishes today.");
     }
 }
 
@@ -941,9 +967,11 @@ function startNotificationService() {
                                       todayData.dinner && todayData.dinner.home !== null;
                                       
                 if (!isFullyLogged) {
-                    new Notification("ChoreFlow Reminder 🧼", {
+                    sendRealNotification("ChoreFlow Reminder 🧼", {
                         body: "It is 9:00 PM! Don't forget to track your home meals and dishes today.",
-                        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
+                        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
+                        badge: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
+                        vibrate: [200, 100, 200]
                     });
                     
                     // Mark as notified today
