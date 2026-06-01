@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChoreFlow | Dishwashing & Meal Tracker</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Decorative background glow blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="app-container">
+        <!-- ================= AUTHENTICATION SCREEN ================= -->
+        <section id="auth-screen" class="screen active">
+            <div class="auth-card glass-panel animate-fade-in">
+                <div class="auth-logo">
+                    <div class="logo-icon-bg">
+                        <i class="fa-solid fa-soap logo-icon"></i>
+                    </div>
+                    <h1>Chore<span>Flow</span></h1>
+                    <p class="tagline">Your personal home dining & chore companion</p>
+                </div>
+
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+                    <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label for="login-username"><i class="fa-regular fa-user"></i> Username</label>
+                        <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <label for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
+                        <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Sign In <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    </button>
+                </form>
+
+                <!-- Register Form (hidden by default) -->
+                <form id="register-form" class="auth-form hidden" onsubmit="handleRegister(event)">
+                    <div class="input-group">
+                        <label for="register-username"><i class="fa-regular fa-user"></i> Choose Username</label>
+                        <input type="text" id="register-username" placeholder="e.g. stefano" required autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <label for="register-password"><i class="fa-solid fa-lock"></i> Password</label>
+                        <input type="password" id="register-password" placeholder="Create a password" required autocomplete="new-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="register-confirm-password"><i class="fa-solid fa-shield-halved"></i> Confirm Password</label>
+                        <input type="password" id="register-confirm-password" placeholder="Confirm password" required autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="btn btn-accent btn-block">
+                        Create Account <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                </form>
+
+                <div class="auth-footer">
+                    <p id="auth-message" class="auth-message"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= MAIN APP VIEW (HEADER + DYNAMIC SCREENS) ================= -->
+        <main id="main-app" class="hidden">
+            <!-- App Header -->
+            <header class="app-header glass-panel">
+                <div class="header-brand">
+                    <i class="fa-solid fa-soap logo-icon-sm"></i>
+                    <h2>Chore<span>Flow</span></h2>
+                </div>
+
+                <!-- Date & User Navigation Controls -->
+                <div class="header-controls">
+                    <div class="date-navigator glass-panel-inset">
+                        <button class="date-nav-btn" onclick="adjustDate(-1)" title="Previous Day">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <div class="date-display-wrapper">
+                            <i class="fa-regular fa-calendar-days"></i>
+                            <span id="current-date-text">Today, June 1</span>
+                            <input type="date" id="hidden-date-picker" onchange="setDateFromPicker(this.value)">
+                        </div>
+                        <button class="date-nav-btn" onclick="adjustDate(1)" id="next-date-btn" title="Next Day">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="user-profile">
+                        <div class="avatar">
+                            <span id="user-initial">S</span>
+                        </div>
+                        <span id="user-display-name" class="username">Stefano</span>
+                        <button class="btn-logout" onclick="handleLogout()" title="Sign Out">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- ================= QUESTIONNAIRE WIZARD SCREEN ================= -->
+            <section id="questionnaire-screen" class="screen-content hidden">
+                <div class="wizard-container glass-panel animate-scale-in">
+                    <!-- Progress Bar for Wizard -->
+                    <div class="wizard-header">
+                        <div class="wizard-header-top">
+                            <div class="wizard-steps-indicator">
+                                <span class="step-dot active" id="dot-lunch"></span>
+                                <span class="step-dot" id="dot-dinner"></span>
+                            </div>
+                            <button class="btn btn-outline btn-sm btn-skip" onclick="skipQuestionnaire()" title="Skip compiling details for now">
+                                Skip <i class="fa-solid fa-forward"></i>
+                            </button>
+                        </div>
+                        <h3 class="wizard-title" id="wizard-section-title">Lunch Log</h3>
+                    </div>
+
+                    <div class="wizard-question-box">
+                        <!-- Step 1: Lunch Home -->
+                        <div id="step-lunch-home" class="question-step active animate-slide-in">
+                            <div class="icon-pulse-wrapper color-lunch">
+                                <i class="fa-solid fa-utensils question-icon"></i>
+                            </div>
+                            <h2 class="question-text">Have you eaten at home today at lunch?</h2>
+                            <p class="question-subtext">Select 'Yes' if you had your lunch at home, or 'No' if you dined out or ordered takeaway.</p>
+                            <div class="options-container">
+                                <button class="btn btn-option-yes" onclick="answerQuestion('lunchHome', true)">
+                                    <i class="fa-regular fa-circle-check"></i> Yes, at home
+                                </button>
+                                <button class="btn btn-option-no" onclick="answerQuestion('lunchHome', false)">
+                                    <i class="fa-regular fa-circle-xmark"></i> No, dined out
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 1b: Lunch Wash Dishes -->
+                        <div id="step-lunch-wash" class="question-step hidden">
+                            <div class="icon-pulse-wrapper color-wash">
+                                <i class="fa-solid fa-hands-bubbles-soap question-icon"></i>
+                            </div>
+                            <h2 class="question-text">Were you the one that washed the dishes?</h2>
+                            <p class="question-subtext">Did you handle the clean-up duty for your lunch dishes?</p>
+                            <div class="options-container">
+                                <button class="btn btn-option-yes" onclick="answerQuestion('lunchWash', true)">
+                                    <i class="fa-solid fa-sink"></i> Yes, I did
+                                </button>
+                                <button class="btn btn-option-no" onclick="answerQuestion('lunchWash', false)">
+                                    <i class="fa-solid fa-ban"></i> No, someone else
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Dinner Home -->
+                        <div id="step-dinner-home" class="question-step hidden">
+                            <div class="icon-pulse-wrapper color-dinner">
+                                <i class="fa-solid fa-moon question-icon"></i>
+                            </div>
+                            <h2 class="question-text">Have you eaten at home today at dinner?</h2>
+                            <p class="question-subtext">Select 'Yes' if you had dinner at home, or 'No' if you dined elsewhere.</p>
+                            <div class="options-container">
+                                <button class="btn btn-option-yes" onclick="answerQuestion('dinnerHome', true)">
+                                    <i class="fa-regular fa-circle-check"></i> Yes, at home
+                                </button>
+                                <button class="btn btn-option-no" onclick="answerQuestion('dinnerHome', false)">
+                                    <i class="fa-regular fa-circle-xmark"></i> No, dined out
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2b: Dinner Wash Dishes -->
+                        <div id="step-dinner-wash" class="question-step hidden">
+                            <div class="icon-pulse-wrapper color-wash">
+                                <i class="fa-solid fa-hands-bubbles-soap question-icon"></i>
+                            </div>
+                            <h2 class="question-text">Were you the one that washed the dishes?</h2>
+                            <p class="question-subtext">Did you clean up the kitchen after your dinner?</p>
+                            <div class="options-container">
+                                <button class="btn btn-option-yes" onclick="answerQuestion('dinnerWash', true)">
+                                    <i class="fa-solid fa-sink"></i> Yes, I did
+                                </button>
+                                <button class="btn btn-option-no" onclick="answerQuestion('dinnerWash', false)">
+                                    <i class="fa-solid fa-ban"></i> No, someone else
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="wizard-actions">
+                        <button id="wizard-prev-btn" class="btn btn-outline" onclick="goToPrevWizardStep()" disabled>
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                        <span class="wizard-progress-text" id="wizard-progress-label">Step 1 of 2</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= DASHBOARD SCREEN ================= -->
+            <section id="dashboard-screen" class="screen-content hidden animate-fade-in">
+                <!-- TOP METRICS (Progress Bars) -->
+                <div class="metrics-grid">
+                    <!-- Metric Card 1: Meals at Home -->
+                    <div class="metric-card glass-panel glow-card-blue">
+                        <div class="metric-header">
+                            <div class="metric-icon-bg color-blue">
+                                <i class="fa-solid fa-house-chimney"></i>
+                            </div>
+                            <div>
+                                <h4>Meals at Home</h4>
+                                <span class="metric-desc">Home meals vs. total recorded</span>
+                            </div>
+                        </div>
+                        <div class="metric-value-container">
+                            <h2 id="meals-home-percentage">0%</h2>
+                            <span id="meals-home-fraction" class="metric-subval">0 / 0 meals</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="meals-home-bar" class="progress-bar bar-gradient-blue" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Metric Card 2: Washing Dishes -->
+                    <div class="metric-card glass-panel glow-card-emerald">
+                        <div class="metric-header">
+                            <div class="metric-icon-bg color-emerald">
+                                <i class="fa-solid fa-hands-bubbles-soap"></i>
+                            </div>
+                            <div>
+                                <h4>Washing Dishes</h4>
+                                <span class="metric-desc">% of home meals you cleaned</span>
+                            </div>
+                        </div>
+                        <div class="metric-value-container">
+                            <h2 id="wash-dishes-percentage">0%</h2>
+                            <span id="wash-dishes-fraction" class="metric-subval">0 / 0 cleaned</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="wash-dishes-bar" class="progress-bar bar-gradient-emerald" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OVERVIEW CONTENT -->
+                <div class="dashboard-details-layout">
+                    <!-- Weekly History List -->
+                    <div class="details-card glass-panel flex-grow-2">
+                        <div class="card-header">
+                            <h3><i class="fa-regular fa-calendar-check text-indigo"></i> Weekly Summary Overview</h3>
+                            <button class="btn btn-outline btn-sm" onclick="reTriggerTodayQuestions()" id="edit-today-btn">
+                                <i class="fa-solid fa-pen-to-square"></i> Log / Edit Selected Day
+                            </button>
+                        </div>
+
+                        <div class="weekly-list-wrapper">
+                            <div id="weekly-overview-list" class="weekly-list">
+                                <!-- Dynamic daily summary entries will be injected here -->
+                                <div class="empty-state">
+                                    <i class="fa-regular fa-clipboard empty-icon"></i>
+                                    <p>No meals tracked yet. Use the calendar or click the button to log your first entry!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tips & Info Sidebar -->
+                    <div class="details-card glass-panel flex-grow-1">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-award text-amber"></i> Smart Insights</h3>
+                        </div>
+                        <div class="insights-container" id="insights-container">
+                            <div class="insight-item animate-fade-in">
+                                <div class="insight-icon color-amber">
+                                    <i class="fa-solid fa-lightbulb"></i>
+                                </div>
+                                <div class="insight-content">
+                                    <h5>Eating at Home</h5>
+                                    <p>Saves money and is typically healthier! Aim to hit at least 70% home-cooked meals.</p>
+                                </div>
+                            </div>
+                            <div class="insight-item animate-fade-in">
+                                <div class="insight-icon color-indigo">
+                                    <i class="fa-solid fa-handshake-angle"></i>
+                                </div>
+                                <div class="insight-content">
+                                    <h5>Fair Share</h5>
+                                    <p>Washing your dishes contributes to a cooperative and tidy household. Good job doing your part!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discreet settings/reset section at the very bottom of the dashboard -->
+                <div class="discreet-settings">
+                    <button class="btn-settings-toggle" onclick="toggleSettingsPanel()" title="System Settings">
+                        <i class="fa-solid fa-sliders"></i> System Settings
+                    </button>
+                    <div id="settings-panel" class="settings-panel glass-panel hidden animate-scale-in">
+                        <h4><i class="fa-solid fa-triangle-exclamation text-rose"></i> Danger Zone</h4>
+                        <p>This will permanently wipe all your home meal tracking history and reset the dashboard. This action is irreversible.</p>
+                        <div class="reset-confirm-group">
+                            <input type="text" id="reset-confirm-input" placeholder="Type RESET to confirm">
+                            <button class="btn btn-sm btn-option-no" onclick="confirmResetAllData()">Reset Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Background music/sound feedback (optional micro-animations helper) -->
+    <!-- Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
