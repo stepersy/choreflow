@@ -101,6 +101,9 @@
                         </button>
                     </div>
 
+                    <button class="btn btn-outline btn-sm btn-report" onclick="showReportScreen()" title="All-Time Analytics & Report" style="margin-right: 10px;">
+                        <i class="fa-solid fa-chart-simple"></i> Report
+                    </button>
                     <div class="user-profile">
                         <div class="avatar">
                             <span id="user-initial">S</span>
@@ -123,8 +126,8 @@
                                 <span class="step-dot active" id="dot-lunch"></span>
                                 <span class="step-dot" id="dot-dinner"></span>
                             </div>
-                            <button class="btn btn-outline btn-sm btn-skip" onclick="skipQuestionnaire()" title="Skip compiling details for now">
-                                Skip <i class="fa-solid fa-forward"></i>
+                            <button class="btn btn-outline btn-sm btn-skip" onclick="skipQuestionnaire()" title="View dashboard">
+                                <i class="fa-solid fa-table-columns"></i> Dashboard
                             </button>
                         </div>
                         <h3 class="wizard-title" id="wizard-section-title">Lunch Log</h3>
@@ -136,7 +139,7 @@
                             <div class="icon-pulse-wrapper color-lunch">
                                 <i class="fa-solid fa-utensils question-icon"></i>
                             </div>
-                            <h2 class="question-text">Have you eaten at home today at lunch?</h2>
+                            <h2 class="question-text" id="q-lunch-home-text">Have you eaten at home today at lunch?</h2>
                             <p class="question-subtext">Select 'Yes' if you had your lunch at home, or 'No' if you dined out or ordered takeaway.</p>
                             <div class="options-container">
                                 <button class="btn btn-option-yes" onclick="answerQuestion('lunchHome', true)">
@@ -151,7 +154,7 @@
                         <!-- Step 1b: Lunch Wash Dishes -->
                         <div id="step-lunch-wash" class="question-step hidden">
                             <div class="icon-pulse-wrapper color-wash">
-                                <i class="fa-solid fa-hands-bubbles-soap question-icon"></i>
+                                <i class="fa-solid fa-hands-bubbles question-icon"></i>
                             </div>
                             <h2 class="question-text">Were you the one that washed the dishes?</h2>
                             <p class="question-subtext">Did you handle the clean-up duty for your lunch dishes?</p>
@@ -170,7 +173,7 @@
                             <div class="icon-pulse-wrapper color-dinner">
                                 <i class="fa-solid fa-moon question-icon"></i>
                             </div>
-                            <h2 class="question-text">Have you eaten at home today at dinner?</h2>
+                            <h2 class="question-text" id="q-dinner-home-text">Have you eaten at home today at dinner?</h2>
                             <p class="question-subtext">Select 'Yes' if you had dinner at home, or 'No' if you dined elsewhere.</p>
                             <div class="options-container">
                                 <button class="btn btn-option-yes" onclick="answerQuestion('dinnerHome', true)">
@@ -185,7 +188,7 @@
                         <!-- Step 2b: Dinner Wash Dishes -->
                         <div id="step-dinner-wash" class="question-step hidden">
                             <div class="icon-pulse-wrapper color-wash">
-                                <i class="fa-solid fa-hands-bubbles-soap question-icon"></i>
+                                <i class="fa-solid fa-hands-bubbles question-icon"></i>
                             </div>
                             <h2 class="question-text">Were you the one that washed the dishes?</h2>
                             <p class="question-subtext">Did you clean up the kitchen after your dinner?</p>
@@ -237,7 +240,7 @@
                     <div class="metric-card glass-panel glow-card-emerald">
                         <div class="metric-header">
                             <div class="metric-icon-bg color-emerald">
-                                <i class="fa-solid fa-hands-bubbles-soap"></i>
+                                <i class="fa-solid fa-hands-bubbles"></i>
                             </div>
                             <div>
                                 <h4>Washing Dishes</h4>
@@ -258,10 +261,19 @@
                 <div class="dashboard-details-layout">
                     <!-- Weekly History List -->
                     <div class="details-card glass-panel flex-grow-2">
-                        <div class="card-header">
+                        <div class="card-header weekly-header-layout">
                             <h3><i class="fa-regular fa-calendar-check text-indigo"></i> Weekly Summary Overview</h3>
+                            <div class="week-navigator-container glass-panel-inset">
+                                <button class="week-nav-btn" onclick="adjustWeek(-1)" title="Previous Week">
+                                    <i class="fa-solid fa-chevron-left"></i>
+                                </button>
+                                <span id="week-display-range" class="week-range-label">Loading week...</span>
+                                <button class="week-nav-btn" onclick="adjustWeek(1)" id="next-week-btn" title="Next Week">
+                                    <i class="fa-solid fa-chevron-right"></i>
+                                </button>
+                            </div>
                             <button class="btn btn-outline btn-sm" onclick="reTriggerTodayQuestions()" id="edit-today-btn">
-                                <i class="fa-solid fa-pen-to-square"></i> Log / Edit Selected Day
+                                <i class="fa-solid fa-pen-to-square"></i> Log / Edit Day
                             </button>
                         </div>
 
@@ -309,13 +321,146 @@
                     <button class="btn-settings-toggle" onclick="toggleSettingsPanel()" title="System Settings">
                         <i class="fa-solid fa-sliders"></i> System Settings
                     </button>
-                    <div id="settings-panel" class="settings-panel glass-panel hidden animate-scale-in">
-                        <h4><i class="fa-solid fa-triangle-exclamation text-rose"></i> Danger Zone</h4>
-                        <p>This will permanently wipe all your home meal tracking history and reset the dashboard. This action is irreversible.</p>
-                        <div class="reset-confirm-group">
-                            <input type="text" id="reset-confirm-input" placeholder="Type RESET to confirm">
-                            <button class="btn btn-sm btn-option-no" onclick="confirmResetAllData()">Reset Dashboard</button>
+                    <div id="settings-panel" class="settings-panel glass-panel hidden animate-scale-in" style="text-align: left;">
+                        <div class="settings-section">
+                            <h4 style="justify-content: flex-start;"><i class="fa-solid fa-bell text-indigo"></i> Notification Settings</h4>
+                            <p style="margin-bottom: 12px;">Trigger a mock reminder to verify your browser's push notifications are set up correctly.</p>
+                            <button class="btn btn-primary btn-sm btn-block" onclick="triggerTestNotification()">
+                                <i class="fa-solid fa-paper-plane"></i> Send Test Notification
+                            </button>
                         </div>
+                        
+                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 5px 0;">
+                        
+                        <div class="settings-section">
+                            <h4 style="justify-content: flex-start;"><i class="fa-solid fa-triangle-exclamation text-rose"></i> Danger Zone</h4>
+                            <p style="margin-bottom: 12px;">This will permanently wipe all your home meal tracking history and reset the dashboard. This action is irreversible.</p>
+                            <div class="reset-confirm-group">
+                                <input type="text" id="reset-confirm-input" placeholder="Type RESET to confirm">
+                                <button class="btn btn-sm btn-option-no" onclick="confirmResetAllData()">Reset Dashboard</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= ALL-TIME ANALYTICS REPORT SCREEN ================= -->
+            <section id="report-screen" class="screen-content hidden animate-fade-in">
+                <!-- Report Header -->
+                <div class="report-header-card glass-panel">
+                    <button class="btn btn-outline btn-sm btn-back-dashboard" onclick="hideReportScreen()">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                    </button>
+                    <div class="report-header-text">
+                        <h2>All-Time Analytics Report</h2>
+                        <p>Comprehensive historical overview of your dining choices and chore compliance</p>
+                    </div>
+                </div>
+
+                <!-- All-Time Key Metrics Cards -->
+                <div class="metrics-grid" style="margin-top: 25px;">
+                    <!-- Metric Card 1: Total Days Compiled -->
+                    <div class="metric-card glass-panel glow-card-indigo">
+                        <div class="metric-header">
+                            <div class="metric-icon-bg color-indigo">
+                                <i class="fa-solid fa-folder-open"></i>
+                            </div>
+                            <div>
+                                <h4>All-Time History</h4>
+                                <span class="metric-desc">Total forms logged in database</span>
+                            </div>
+                        </div>
+                        <div class="metric-value-container">
+                            <h2 id="report-total-days">0 days</h2>
+                            <span id="report-total-meals" class="metric-subval">0 meals logged</span>
+                        </div>
+                    </div>
+
+                    <!-- Metric Card 2: Meals at Home (All-Time) -->
+                    <div class="metric-card glass-panel glow-card-blue">
+                        <div class="metric-header">
+                            <div class="metric-icon-bg color-blue">
+                                <i class="fa-solid fa-house-chimney"></i>
+                            </div>
+                            <div>
+                                <h4>All-Time Meals at Home</h4>
+                                <span class="metric-desc">Home meals vs. total meals</span>
+                            </div>
+                        </div>
+                        <div class="metric-value-container">
+                            <h2 id="report-meals-home-percentage">0%</h2>
+                            <span id="report-meals-home-fraction" class="metric-subval">0 / 0 meals</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="report-meals-home-bar" class="progress-bar bar-gradient-blue" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Metric Card 3: Washing Dishes (All-Time) -->
+                    <div class="metric-card glass-panel glow-card-emerald">
+                        <div class="metric-header">
+                            <div class="metric-icon-bg color-emerald">
+                                <i class="fa-solid fa-hands-bubbles"></i>
+                            </div>
+                            <div>
+                                <h4>All-Time Washing Dishes</h4>
+                                <span class="metric-desc">% of home meals you cleaned</span>
+                            </div>
+                        </div>
+                        <div class="metric-value-container">
+                            <h2 id="report-wash-dishes-percentage">0%</h2>
+                            <span id="report-wash-dishes-fraction" class="metric-subval">0 / 0 cleaned</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="report-wash-dishes-bar" class="progress-bar bar-gradient-emerald" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid" style="margin-top: 25px;">
+                    <!-- Chart 1: Dining Out Frequency -->
+                    <div class="details-card glass-panel chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-utensils text-rose"></i> Dining Out by Day of the Week</h3>
+                        </div>
+                        <div class="chart-container" id="chart-dining-out">
+                            <!-- SVG Bar Chart will be dynamically injected here -->
+                        </div>
+                        <p class="chart-caption" id="dining-out-caption">Shows the total number of times you dined out on each day of the week.</p>
+                    </div>
+
+                    <!-- Chart 2: Dishes Cleaned Frequency -->
+                    <div class="details-card glass-panel chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-soap text-emerald"></i> Dishes Cleaned by Day of the Week</h3>
+                        </div>
+                        <div class="chart-container" id="chart-dishes-cleaned">
+                            <!-- SVG Bar Chart will be dynamically injected here -->
+                        </div>
+                        <p class="chart-caption" id="dishes-cleaned-caption">Shows the total count of times you washed dishes on each day of the week.</p>
+                    </div>
+
+                    <!-- Chart 3: Lunch vs Dinner Habits -->
+                    <div class="details-card glass-panel chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-bar text-blue"></i> Lunch vs. Dinner Eating at Home</h3>
+                        </div>
+                        <div class="chart-container" id="chart-meal-comparison">
+                            <!-- SVG Grouped Chart will be dynamically injected here -->
+                        </div>
+                        <p class="chart-caption" id="meal-comparison-caption">Compares eating at home for Lunch (blue) vs Dinner (indigo) across weekdays.</p>
+                    </div>
+
+                    <!-- Chart 4: Cleanliness Consistency Rate per Weekday -->
+                    <div class="details-card glass-panel chart-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-circle-check text-amber"></i> Dishwashing Rate per Weekday</h3>
+                        </div>
+                        <div class="chart-container" id="chart-cleaning-rate">
+                            <!-- SVG Percentage Bar Chart will be dynamically injected here -->
+                        </div>
+                        <p class="chart-caption" id="cleaning-rate-caption">Percentage of home-cooked meals you cleaned up, organized by day of the week.</p>
                     </div>
                 </div>
             </section>

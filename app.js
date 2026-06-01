@@ -55,6 +55,65 @@ function formatDateString(date) {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+// Get Monday of the week YYYY-MM-DD string
+function getMondayOfDateString(dateStr) {
+    const parts = dateStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(year, month, day);
+    const dayOfWeek = d.getDay();
+    const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    return formatDateString(new Date(d.setDate(diff)));
+}
+
+// Get formatted week range display e.g. "Week of May 25 - May 31"
+function getWeekRangeDisplay(dateStr) {
+    const mondayStr = getMondayOfDateString(dateStr);
+    const parts = mondayStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const monday = new Date(year, month, day);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    
+    const optMonthDay = { month: 'short', day: 'numeric' };
+    const mondayStrFormatted = monday.toLocaleDateString('en-US', optMonthDay);
+    
+    let sundayStrFormatted = '';
+    if (monday.getMonth() === sunday.getMonth()) {
+        sundayStrFormatted = sunday.toLocaleDateString('en-US', { day: 'numeric' });
+    } else {
+        sundayStrFormatted = sunday.toLocaleDateString('en-US', optMonthDay);
+    }
+    
+    let yearStr = '';
+    if (monday.getFullYear() !== new Date().getFullYear()) {
+        yearStr = `, ${monday.getFullYear()}`;
+    }
+    
+    return `Week of ${mondayStrFormatted} - ${sundayStrFormatted}${yearStr}`;
+}
+
+// Get phrasing for dynamic wizard questions e.g. "on the 25 of May"
+function getQuestionDatePhrase(dateStr) {
+    const todayStr = formatDateString(new Date());
+    if (dateStr === todayStr) {
+        return "today";
+    }
+    
+    const parts = dateStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const adjustedDate = new Date(year, month, day);
+    
+    const monthName = adjustedDate.toLocaleDateString('en-US', { month: 'long' });
+    return `on the ${day} of ${monthName}`;
+}
+
 // Format YYYY-MM-DD to "Today, Mon DD" or "Mon DD, YYYY"
 function getFormattedDisplayDate(dateStr) {
     const todayStr = formatDateString(new Date());
@@ -214,6 +273,9 @@ function checkStatusAndLoadScreen() {
     // Sync Date Text UI
     document.getElementById('current-date-text').textContent = getFormattedDisplayDate(selectedDate);
     
+    // Sync week navigation range label
+    document.getElementById('week-display-range').textContent = getWeekRangeDisplay(selectedDate);
+    
     // Block forward date tracking (disable future date logging for realism)
     const todayStr = formatDateString(new Date());
     const nextDateBtn = document.getElementById('next-date-btn');
@@ -225,44 +287,32 @@ function checkStatusAndLoadScreen() {
         nextDateBtn.style.pointerEvents = 'auto';
     }
     
+    // Handle week navigator next button status
+    const nextWeekBtn = document.getElementById('next-week-btn');
+    const todayMondayStr = getMondayOfDateString(todayStr);
+    const selectedMondayStr = getMondayOfDateString(selectedDate);
+    
+    if (selectedMondayStr >= todayMondayStr) {
+        nextWeekBtn.style.opacity = '0.3';
+        nextWeekBtn.style.pointerEvents = 'none';
+    } else {
+        nextWeekBtn.style.opacity = '1';
+        nextWeekBtn.style.pointerEvents = 'auto';
+    }
+    
     const existingData = userResponses[selectedDate];
     
-    if (selectedDate === todayStr) {
-        const hour = getActiveHour();
-        
-        if (hour < 12) {
-            // Before 12 PM: No questions, show dashboard
-            showScreen('dashboard-screen');
-            updateDashboard();
-        } else if (hour >= 12 && hour < 20) {
-            // 12 PM to 8 PM: Lunch completed?
-            const lunchCompleted = existingData && existingData.lunch && existingData.lunch.home !== null;
-            if (lunchCompleted) {
-                showScreen('dashboard-screen');
-                updateDashboard();
-            } else {
-                startQuestionnaireFlow();
-            }
-        } else {
-            // After 8 PM: Both completed?
-            const bothCompleted = existingData && 
-                                  existingData.lunch && existingData.lunch.home !== null && 
-                                  existingData.dinner && existingData.dinner.home !== null;
-            if (bothCompleted) {
-                showScreen('dashboard-screen');
-                updateDashboard();
-            } else {
-                startQuestionnaireFlow();
-            }
-        }
+    // We allow compiling the form at any time, both for lunch and dinner.
+    // An entry is fully complete if both lunch and dinner answers are logged.
+    const bothCompleted = existingData && 
+                          existingData.lunch && existingData.lunch.home !== null && 
+                          existingData.dinner && existingData.dinner.home !== null;
+    
+    if (bothCompleted) {
+        showScreen('dashboard-screen');
+        updateDashboard();
     } else {
-        // Historical date: show dashboard if anything recorded, else open questionnaire
-        if (existingData) {
-            showScreen('dashboard-screen');
-            updateDashboard();
-        } else {
-            startQuestionnaireFlow();
-        }
+        startQuestionnaireFlow();
     }
 }
 
@@ -280,6 +330,30 @@ function adjustDate(days) {
     
     // Don't allow navigating into the future
     if (nextDateStr > todayStr) return;
+    
+    selectedDate = nextDateStr;
+    checkStatusAndLoadScreen();
+}
+
+function adjustWeek(weeks) {
+    const parts = selectedDate.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const currentDate = new Date(year, month, day);
+    
+    currentDate.setDate(currentDate.getDate() + (weeks * 7));
+    
+    const nextDateStr = formatDateString(currentDate);
+    const todayStr = formatDateString(new Date());
+    
+    const todayMondayStr = getMondayOfDateString(todayStr);
+    const nextDateMonday = getMondayOfDateString(nextDateStr);
+    
+    // Don't allow navigating to weeks fully in the future
+    if (nextDateMonday > todayMondayStr) {
+        return;
+    }
     
     selectedDate = nextDateStr;
     checkStatusAndLoadScreen();
@@ -305,8 +379,6 @@ function jumpToDate(dateStr) {
 
 /* ================= QUESTIONNAIRE FLOW WIZARD ================= */
 function startQuestionnaireFlow(forceEdit = false) {
-    const todayStr = formatDateString(new Date());
-    
     // Default answers setup
     wizardState.answers = {
         lunch: { home: null, washed: null },
@@ -322,32 +394,21 @@ function startQuestionnaireFlow(forceEdit = false) {
     
     let startStep = WIZARD_STEPS.LUNCH_HOME;
     
-    // If it's today and NOT a forced edit, we apply dynamic time-gated branching and previous log checks
-    if (selectedDate === todayStr && !forceEdit) {
-        const hour = getActiveHour();
-        
-        if (hour < 12) {
-            // Before 12 PM: No questions triggered
-            showScreen('dashboard-screen');
-            updateDashboard();
-            return;
-        }
-        
-        // If lunch is already logged, but we need to prompt dinner
-        if (existingData && existingData.lunch && existingData.lunch.home !== null) {
-            if (hour >= 20) {
-                // Prompt dinner only
-                startStep = WIZARD_STEPS.DINNER_HOME;
-            } else {
-                // 12 PM to 8 PM: Lunch already logged, nothing more to fill yet!
-                showScreen('dashboard-screen');
-                updateDashboard();
-                return;
-            }
-        }
-    }
+    // All time gates are removed. When compiling, we go through both Lunch and Dinner.
     
     wizardState.stepHistory = [startStep];
+    
+    // Dynamically update question wordings based on selectedDate
+    const datePhrase = getQuestionDatePhrase(selectedDate);
+    const todayStr = formatDateString(new Date());
+    
+    if (selectedDate === todayStr) {
+        document.getElementById('q-lunch-home-text').textContent = "Have you eaten at home today at lunch?";
+        document.getElementById('q-dinner-home-text').textContent = "Have you eaten at home today at dinner?";
+    } else {
+        document.getElementById('q-lunch-home-text').textContent = `Have you eaten at home at lunch ${datePhrase}?`;
+        document.getElementById('q-dinner-home-text').textContent = `Have you eaten at home at dinner ${datePhrase}?`;
+    }
     
     // Hide all steps, show starting step
     document.querySelectorAll('.question-step').forEach(step => step.classList.add('hidden'));
@@ -393,9 +454,7 @@ function answerQuestion(questionKey, answerValue) {
     const currentStep = wizardState.stepHistory[wizardState.stepHistory.length - 1];
     let nextStep = null;
     
-    const isToday = selectedDate === formatDateString(new Date());
-    const hour = getActiveHour();
-    
+    // Process answers with no day/time-gate interruptions
     if (questionKey === 'lunchHome') {
         wizardState.answers.lunch.home = answerValue;
         if (answerValue === true) {
@@ -403,26 +462,12 @@ function answerQuestion(questionKey, answerValue) {
         } else {
             // Skips dishwashing if didn't eat at home
             wizardState.answers.lunch.washed = false;
-            
-            // Time gate check: if it is today and before 8 PM, complete right after lunch
-            if (isToday && hour < 20) {
-                saveAndCompleteQuestionnaire();
-                return;
-            } else {
-                nextStep = WIZARD_STEPS.DINNER_HOME;
-            }
+            nextStep = WIZARD_STEPS.DINNER_HOME;
         }
     } 
     else if (questionKey === 'lunchWash') {
         wizardState.answers.lunch.washed = answerValue;
-        
-        // Time gate check: if it is today and before 8 PM, complete right after lunch
-        if (isToday && hour < 20) {
-            saveAndCompleteQuestionnaire();
-            return;
-        } else {
-            nextStep = WIZARD_STEPS.DINNER_HOME;
-        }
+        nextStep = WIZARD_STEPS.DINNER_HOME;
     } 
     else if (questionKey === 'dinnerHome') {
         wizardState.answers.dinner.home = answerValue;
@@ -500,14 +545,27 @@ function saveAndCompleteQuestionnaire() {
 
 /* ================= STATS COMPUTATION & DASHBOARD ================= */
 function updateDashboard() {
-    const totalDays = Object.keys(userResponses).length;
+    // Filter response dates strictly for the currently selected week (Monday to Sunday)
+    const mondayStr = getMondayOfDateString(selectedDate);
+    const parts = mondayStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const mondayDate = new Date(year, month, day);
+    
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+        const loopDate = new Date(mondayDate);
+        loopDate.setDate(mondayDate.getDate() + i);
+        weekDays.push(formatDateString(loopDate));
+    }
     
     let totalMealsRecorded = 0;
     let homeMealsCount = 0;
     let dishesWashedCount = 0;
     
-    // Iterate through logged days to calculate statistics
-    Object.keys(userResponses).forEach(dateKey => {
+    // Iterate through logged days in the current selected week to calculate statistics
+    weekDays.forEach(dateKey => {
         const dayData = userResponses[dateKey];
         if (dayData) {
             // Count Lunch if logged
@@ -589,17 +647,18 @@ function renderWeeklySummaryList() {
     const listContainer = document.getElementById('weekly-overview-list');
     listContainer.innerHTML = '';
     
-    // Generate dates for the last 7 calendar days ending on the selectedDate
-    const dateArray = [];
-    const parts = selectedDate.split('-');
+    // Generate dates for the selected week starting on Monday
+    const mondayStr = getMondayOfDateString(selectedDate);
+    const parts = mondayStr.split('-');
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1;
     const day = parseInt(parts[2], 10);
-    const baseDate = new Date(year, month, day);
+    const mondayDate = new Date(year, month, day);
     
-    for (let i = 6; i >= 0; i--) {
-        const loopDate = new Date(baseDate);
-        loopDate.setDate(baseDate.getDate() - i);
+    const dateArray = [];
+    for (let i = 0; i < 7; i++) {
+        const loopDate = new Date(mondayDate);
+        loopDate.setDate(mondayDate.getDate() + i);
         dateArray.push(formatDateString(loopDate));
     }
     
@@ -789,6 +848,33 @@ function requestNotificationPermission() {
     }
 }
 
+function triggerTestNotification() {
+    if (!("Notification" in window)) {
+        alert("Web Notifications are not supported in this browser.");
+        return;
+    }
+    
+    if (Notification.permission === "granted") {
+        new Notification("ChoreFlow Test Notification 🧼", {
+            body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
+            icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
+        });
+    } else if (Notification.permission === "denied") {
+        alert("Notification permission has been denied. Please enable notifications in your browser settings to test them.");
+    } else {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                new Notification("ChoreFlow Test Notification 🧼", {
+                    body: "Success! Notification system is working correctly. You'll be reminded daily at 9:00 PM.",
+                    icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg"
+                });
+            } else {
+                alert("Notification permission request was dismissed or denied.");
+            }
+        });
+    }
+}
+
 function startNotificationService() {
     if (!("Notification" in window)) return;
     
@@ -856,4 +942,350 @@ function confirmResetAllData() {
         checkStatusAndLoadScreen();
         alert('All meal histories and dashboard items have been successfully wiped.');
     }
+}
+
+/* ================= REPORT ENGINE & SVG CHARTS ================= */
+
+function showReportScreen() {
+    // Hide main dashboard, show report screen
+    document.getElementById('dashboard-screen').classList.add('hidden');
+    document.getElementById('questionnaire-screen').classList.add('hidden');
+    document.getElementById('report-screen').classList.remove('hidden');
+    
+    // Render all-time report metrics & graphs
+    generateReportData();
+}
+
+function hideReportScreen() {
+    document.getElementById('report-screen').classList.add('hidden');
+    document.getElementById('dashboard-screen').classList.remove('hidden');
+    checkStatusAndLoadScreen();
+}
+
+function generateReportData() {
+    const totalDays = Object.keys(userResponses).length;
+    
+    let totalMealsRecorded = 0;
+    let homeMealsCount = 0;
+    let dishesWashedCount = 0;
+    
+    // Weekly arrays initialized for analytics
+    // Monday (0) to Sunday (6)
+    const weekdaysNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    // Analytics data structures
+    const outCounts = [0, 0, 0, 0, 0, 0, 0];       // Dining out frequency
+    const washCounts = [0, 0, 0, 0, 0, 0, 0];      // Cleaned meals count
+    const homeLunchCounts = [0, 0, 0, 0, 0, 0, 0]; // Home lunch count
+    const homeDinnerCounts = [0, 0, 0, 0, 0, 0, 0];// Home dinner count
+    const homeMealsByDay = [0, 0, 0, 0, 0, 0, 0];   // Total home meals for consistency percentage calculation
+    
+    Object.keys(userResponses).forEach(dateKey => {
+        const dayData = userResponses[dateKey];
+        if (dayData) {
+            // Calculate day of week index (Monday = 0, Tuesday = 1, ..., Sunday = 6)
+            const parts = dateKey.split('-');
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            const dt = new Date(year, month, day);
+            let dayIndex = dt.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+            dayIndex = dayIndex === 0 ? 6 : dayIndex - 1; // Map Sun to 6, Mon to 0
+            
+            // Count Lunch
+            if (dayData.lunch && dayData.lunch.home !== null) {
+                totalMealsRecorded++;
+                if (dayData.lunch.home) {
+                    homeMealsCount++;
+                    homeLunchCounts[dayIndex]++;
+                    homeMealsByDay[dayIndex]++;
+                    if (dayData.lunch.washed) {
+                        dishesWashedCount++;
+                        washCounts[dayIndex]++;
+                    }
+                } else {
+                    outCounts[dayIndex]++;
+                }
+            }
+            
+            // Count Dinner
+            if (dayData.dinner && dayData.dinner.home !== null) {
+                totalMealsRecorded++;
+                if (dayData.dinner.home) {
+                    homeMealsCount++;
+                    homeDinnerCounts[dayIndex]++;
+                    homeMealsByDay[dayIndex]++;
+                    if (dayData.dinner.washed) {
+                        dishesWashedCount++;
+                        washCounts[dayIndex]++;
+                    }
+                } else {
+                    outCounts[dayIndex]++;
+                }
+            }
+        }
+    });
+    
+    // Calculate All-Time Percentages
+    const mealsHomePercent = totalMealsRecorded > 0 
+        ? Math.round((homeMealsCount / totalMealsRecorded) * 100) 
+        : 0;
+        
+    const dishesWashedPercent = homeMealsCount > 0 
+        ? Math.round((dishesWashedCount / homeMealsCount) * 100) 
+        : 0;
+        
+    // Update Report Header Cards (All-time metrics)
+    document.getElementById('report-total-days').textContent = `${totalDays} Day${totalDays === 1 ? '' : 's'}`;
+    document.getElementById('report-total-meals').textContent = `${totalMealsRecorded} meal${totalMealsRecorded === 1 ? '' : 's'} recorded`;
+    
+    animateNumber('report-meals-home-percentage', mealsHomePercent, '%');
+    document.getElementById('report-meals-home-fraction').textContent = `${homeMealsCount} / ${totalMealsRecorded} meals`;
+    document.getElementById('report-meals-home-bar').style.width = `${mealsHomePercent}%`;
+    
+    animateNumber('report-wash-dishes-percentage', dishesWashedPercent, '%');
+    document.getElementById('report-wash-dishes-fraction').textContent = `${dishesWashedCount} / ${homeMealsCount} cleaned`;
+    document.getElementById('report-wash-dishes-bar').style.width = `${dishesWashedPercent}%`;
+    
+    // Render Chart 1: Dining Out Frequency
+    const maxOutValue = Math.max(...outCounts);
+    const outChartData = weekdaysNames.map((name, idx) => ({
+        label: name.substring(0, 3),
+        value: outCounts[idx],
+        highlight: outCounts[idx] === maxOutValue && maxOutValue > 0
+    }));
+    renderBarChartSVG('chart-dining-out', outChartData, { barColor: 'url(#grad-rose)', glowClass: 'glow-rose' });
+    
+    // Determine caption for Dining Out
+    let maxOutDay = "None";
+    let maxOutIdx = outCounts.indexOf(maxOutValue);
+    if (maxOutValue > 0 && maxOutIdx !== -1) {
+        maxOutDay = weekdaysNames[maxOutIdx];
+        document.getElementById('dining-out-caption').innerHTML = `<i class="fa-solid fa-circle-info text-rose"></i> You dine out most frequently on <strong>${maxOutDay}s</strong> (${maxOutValue} times). Consider cooking to save money!`;
+    } else {
+        document.getElementById('dining-out-caption').innerHTML = `<i class="fa-solid fa-circle-info text-rose"></i> No out-meals recorded yet! Outstanding dining-at-home discipline.`;
+    }
+    
+    // Render Chart 2: Dishes Cleaned Frequency
+    const maxWashValue = Math.max(...washCounts);
+    const washChartData = weekdaysNames.map((name, idx) => ({
+        label: name.substring(0, 3),
+        value: washCounts[idx],
+        highlight: washCounts[idx] === maxWashValue && maxWashValue > 0
+    }));
+    renderBarChartSVG('chart-dishes-cleaned', washChartData, { barColor: 'url(#grad-emerald)', glowClass: 'glow-emerald' });
+    
+    // Determine caption for Dishes Cleaned
+    let maxWashDay = "None";
+    let maxWashIdx = washCounts.indexOf(maxWashValue);
+    if (maxWashValue > 0 && maxWashIdx !== -1) {
+        maxWashDay = weekdaysNames[maxWashIdx];
+        document.getElementById('dishes-cleaned-caption').innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-emerald"></i> You are most active washing dishes on <strong>${maxWashDay}s</strong> (${maxWashValue} times). Keep up the great habits!`;
+    } else {
+        document.getElementById('dishes-cleaned-caption').innerHTML = `<i class="fa-solid fa-circle-info"></i> No cleaned-dishes recorded yet. Your kitchen is waiting for you!`;
+    }
+    
+    // Render Chart 3: Lunch vs Dinner Habits (Grouped Bar Chart)
+    renderGroupedChartSVG('chart-meal-comparison', weekdaysNames.map((n, idx) => ({
+        label: n.substring(0, 3),
+        val1: homeLunchCounts[idx], // Lunch
+        val2: homeDinnerCounts[idx] // Dinner
+    })));
+    
+    // Caption for Lunch vs Dinner comparison
+    const totalLunches = homeLunchCounts.reduce((a,b)=>a+b, 0);
+    const totalDinners = homeDinnerCounts.reduce((a,b)=>a+b, 0);
+    if (totalLunches + totalDinners > 0) {
+        const preferredMeal = totalLunches > totalDinners ? "Lunch" : (totalDinners > totalLunches ? "Dinner" : "both Lunch & Dinner equally");
+        document.getElementById('meal-comparison-caption').innerHTML = `<i class="fa-solid fa-circle-info text-blue"></i> All-Time Home Meals: Lunch (<strong>${totalLunches}</strong>), Dinner (<strong>${totalDinners}</strong>). You cook at home more for <strong>${preferredMeal}</strong>.`;
+    } else {
+        document.getElementById('meal-comparison-caption').innerHTML = `<i class="fa-solid fa-circle-info text-blue"></i> No home meals recorded yet to generate comparison statistics.`;
+    }
+    
+    // Render Chart 4: Cleanliness Consistency Rate per Weekday (%)
+    const consistencyRates = weekdaysNames.map((name, idx) => {
+        const homeMeals = homeMealsByDay[idx];
+        const washed = washCounts[idx];
+        const rate = homeMeals > 0 ? Math.round((washed / homeMeals) * 100) : 0;
+        return {
+            label: name.substring(0, 3),
+            value: rate,
+            highlight: rate >= 80 && homeMeals > 0
+        };
+    });
+    renderBarChartSVG('chart-cleaning-rate', consistencyRates, { barColor: 'url(#grad-accent)', glowClass: 'glow-accent', suffix: '%' });
+    
+    // Caption for Cleanliness Consistency Rate
+    const highestRateValue = Math.max(...consistencyRates.map(c => c.value));
+    const highestRateIdx = consistencyRates.findIndex(c => c.value === highestRateValue);
+    if (highestRateValue > 0 && highestRateIdx !== -1) {
+        const topConsistencyDay = weekdaysNames[highestRateIdx];
+        document.getElementById('cleaning-rate-caption').innerHTML = `<i class="fa-solid fa-award text-amber"></i> Most disciplined washing dishes on <strong>${topConsistencyDay}s</strong> with a clean rate of <strong>${highestRateValue}%</strong>!`;
+    } else {
+        document.getElementById('cleaning-rate-caption').innerHTML = `<i class="fa-solid fa-circle-info text-amber"></i> Wash dishes on home cooked meals to compute your weekday compliance rate.`;
+    }
+}
+
+function renderBarChartSVG(containerId, data, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const width = 500;
+    const height = 220;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+    
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+    
+    const suffix = options.suffix || '';
+    const maxVal = Math.max(...data.map(d => d.value), 1);
+    
+    // Generate grid lines
+    let gridHtml = '';
+    const ticks = 4;
+    for (let i = 0; i <= ticks; i++) {
+        const y = paddingTop + chartHeight - (i / ticks) * chartHeight;
+        const val = Math.round((i / ticks) * maxVal);
+        gridHtml += `
+            <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4,4" />
+            <text x="${paddingLeft - 8}" y="${y + 4}" fill="var(--text-muted)" font-size="10" font-weight="600" text-anchor="end">${val}${suffix}</text>
+        `;
+    }
+    
+    // Generate bars
+    let barsHtml = '';
+    const barSpacing = chartWidth / data.length;
+    const barWidth = barSpacing * 0.55;
+    
+    data.forEach((d, idx) => {
+        const x = paddingLeft + idx * barSpacing + (barSpacing - barWidth) / 2;
+        const barValHeight = (d.value / maxVal) * chartHeight;
+        const y = paddingTop + chartHeight - barValHeight;
+        
+        const barColor = d.highlight ? 'url(#grad-accent)' : (options.barColor || 'url(#grad-primary)');
+        const glowClass = d.highlight ? 'glow-accent' : (options.glowClass || 'glow-primary');
+        
+        barsHtml += `
+            <g class="chart-bar-group">
+                <rect x="${x}" y="${y}" width="${barWidth}" height="${barValHeight}" rx="4" fill="${barColor}" class="${glowClass}">
+                    <animate attributeName="height" from="0" to="${barValHeight}" dur="0.8s" cubic-bezier="0.4, 0, 0.2, 1" fill="freeze" />
+                    <animate attributeName="y" from="${paddingTop + chartHeight}" to="${y}" dur="0.8s" cubic-bezier="0.4, 0, 0.2, 1" fill="freeze" />
+                </rect>
+                <text x="${x + barWidth / 2}" y="${paddingTop + chartHeight + 18}" fill="var(--text-secondary)" font-size="11" font-weight="700" text-anchor="middle">${d.label}</text>
+                <text x="${x + barWidth / 2}" y="${y - 6}" fill="var(--text-primary)" font-size="10" font-weight="800" text-anchor="middle" class="bar-value-text" opacity="0">${d.value}${suffix}</text>
+            </g>
+        `;
+    });
+    
+    container.innerHTML = `
+        <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <linearGradient id="grad-primary" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-primary)" />
+                    <stop offset="100%" stop-color="var(--color-blue)" />
+                </linearGradient>
+                <linearGradient id="grad-accent" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-accent)" />
+                    <stop offset="100%" stop-color="var(--color-rose)" />
+                </linearGradient>
+                <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-emerald)" />
+                    <stop offset="100%" stop-color="#059669" />
+                </linearGradient>
+                <linearGradient id="grad-rose" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-rose)" />
+                    <stop offset="100%" stop-color="#be123c" />
+                </linearGradient>
+            </defs>
+            ${gridHtml}
+            ${barsHtml}
+        </svg>
+    `;
+}
+
+function renderGroupedChartSVG(containerId, data) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const width = 500;
+    const height = 220;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+    
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+    
+    const maxVal = Math.max(...data.map(d => Math.max(d.val1, d.val2)), 1);
+    
+    // Generate grid lines
+    let gridHtml = '';
+    const ticks = 4;
+    for (let i = 0; i <= ticks; i++) {
+        const y = paddingTop + chartHeight - (i / ticks) * chartHeight;
+        const val = Math.round((i / ticks) * maxVal);
+        gridHtml += `
+            <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4,4" />
+            <text x="${paddingLeft - 8}" y="${y + 4}" fill="var(--text-muted)" font-size="10" font-weight="600" text-anchor="end">${val}</text>
+        `;
+    }
+    
+    // Generate grouped bars
+    let barsHtml = '';
+    const barSpacing = chartWidth / data.length;
+    const totalGroupWidth = barSpacing * 0.65;
+    const singleBarWidth = totalGroupWidth / 2 - 2;
+    
+    data.forEach((d, idx) => {
+        const groupX = paddingLeft + idx * barSpacing + (barSpacing - totalGroupWidth) / 2;
+        
+        const x1 = groupX;
+        const h1 = (d.val1 / maxVal) * chartHeight;
+        const y1 = paddingTop + chartHeight - h1;
+        
+        const x2 = groupX + singleBarWidth + 4;
+        const h2 = (d.val2 / maxVal) * chartHeight;
+        const y2 = paddingTop + chartHeight - h2;
+        
+        barsHtml += `
+            <g class="chart-bar-group">
+                <!-- Lunch Bar (Blue) -->
+                <rect x="${x1}" y="${y1}" width="${singleBarWidth}" height="${h1}" rx="3" fill="url(#grad-primary)" class="glow-blue">
+                    <animate attributeName="height" from="0" to="${h1}" dur="0.8s" cubic-bezier="0.4, 0, 0.2, 1" fill="freeze" />
+                    <animate attributeName="y" from="${paddingTop + chartHeight}" to="${y1}" dur="0.8s" cubic-bezier="0.4, 0, 0.2, 1" fill="freeze" />
+                </rect>
+                <text x="${x1 + singleBarWidth / 2}" y="${y1 - 6}" fill="var(--text-primary)" font-size="9" font-weight="800" text-anchor="middle" class="bar-value-text" opacity="0">${d.val1}</text>
+                
+                <!-- Dinner Bar (Indigo) -->
+                <rect x="${x2}" y="${y2}" width="${singleBarWidth}" height="${h2}" rx="3" fill="url(#grad-accent)" class="glow-primary">
+                    <animate attributeName="height" from="0" to="${h2}" dur="0.8s" cubic-bezier="0.4, 0, 0.2, 1" fill="freeze" />
+                    <animate attributeName="y" from="${paddingTop + chartHeight}" to="${y2}" dur="0.8s" cubic-bezier="0.4, 0, 0.2, 1" fill="freeze" />
+                </rect>
+                <text x="${x2 + singleBarWidth / 2}" y="${y2 - 6}" fill="var(--text-primary)" font-size="9" font-weight="800" text-anchor="middle" class="bar-value-text" opacity="0">${d.val2}</text>
+                
+                <text x="${groupX + totalGroupWidth / 2}" y="${paddingTop + chartHeight + 18}" fill="var(--text-secondary)" font-size="11" font-weight="700" text-anchor="middle">${d.label}</text>
+            </g>
+        `;
+    });
+    
+    container.innerHTML = `
+        <svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <linearGradient id="grad-primary" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-blue)" />
+                    <stop offset="100%" stop-color="#1d4ed8" />
+                </linearGradient>
+                <linearGradient id="grad-accent" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="var(--color-primary)" />
+                    <stop offset="100%" stop-color="#4f46e5" />
+                </linearGradient>
+            </defs>
+            ${gridHtml}
+            ${barsHtml}
+        </svg>
+    `;
 }
