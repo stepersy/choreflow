@@ -20,7 +20,6 @@ No more endless arguments, chore standoffs, or passive-aggressive sticky notes o
   * **Before 12:00 PM**: No questions—just view your clean dashboard.
   * **12:00 PM to 8:00 PM**: Prompts only for **Lunch** questions.
   * **After 8:00 PM**: Prompts for **Dinner** questions as well (or dinner only if lunch was logged earlier).
-* **🔔 Daily 9:00 PM Reminders**: Optional desktop alerts reminding you to log your chores for the day so you never leave gaps in your proof history.
 * **⏩ Prominent Skip Button**: In a rush? Bypass questions with one tap to check the dashboard instantly.
 
 ---

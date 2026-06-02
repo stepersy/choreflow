@@ -12,16 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom CSS Stylesheet -->
     <link rel="stylesheet" href="styles.css">
-    <!-- PushAlert Unified Code -->
-    <script type="text/javascript">
-        (function(d, t) {
-            var g = d.createElement(t),
-            s = d.getElementsByTagName(t)[0];
-            g.src = "https://cdn.pushalert.co/unified_9a383b29f35a15c3b9431b2a4440adab.js";
-            s.parentNode.insertBefore(g, s);
-        }(document, "script"));
-    </script>
-    <!-- End PushAlert Unified Code -->
+
 </head>
 <body>
     <!-- Decorative background glow blobs -->
@@ -136,7 +127,7 @@
                                 <span class="step-dot active" id="dot-lunch"></span>
                                 <span class="step-dot" id="dot-dinner"></span>
                             </div>
-                            <button class="btn btn-outline btn-sm btn-skip" onclick="skipQuestionnaire()" title="View dashboard">
+                            <button class="btn btn-outline btn-sm btn-skip" onclick="skipQuestionnaire()" title="Save progress and view dashboard">
                                 <i class="fa-solid fa-table-columns"></i> Dashboard
                             </button>
                         </div>
@@ -332,15 +323,7 @@
                         <i class="fa-solid fa-sliders"></i> System Settings
                     </button>
                     <div id="settings-panel" class="settings-panel glass-panel hidden animate-scale-in" style="text-align: left;">
-                        <div class="settings-section">
-                            <h4 style="justify-content: flex-start;"><i class="fa-solid fa-bell text-indigo"></i> Notification Settings</h4>
-                            <p style="margin-bottom: 12px;">Trigger a mock reminder to verify your browser's push notifications are set up correctly.</p>
-                            <button class="btn btn-primary btn-sm btn-block" onclick="triggerTestNotification()">
-                                <i class="fa-solid fa-paper-plane"></i> Send Test Notification
-                            </button>
-                        </div>
-                        
-                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 5px 0;">
+
                         
                         <div class="settings-section">
                             <h4 style="justify-content: flex-start;"><i class="fa-solid fa-triangle-exclamation text-rose"></i> Danger Zone</h4>

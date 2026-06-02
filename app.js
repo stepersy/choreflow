@@ -23,11 +23,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     selectedDate = formatDateString(today);
     
-    // Register Service Worker (PushAlert unified with ChoreFlow alerts)
+    // Actively unregister existing Service Workers to clean up notifications
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker registered successfully:', reg))
-            .catch(err => console.error('Service Worker registration failed:', err));
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+                registration.unregister()
+                    .then(success => {
+                        if (success) console.log('Successfully unregistered service worker.');
+                    });
+            }
+        });
     }
     
     // Check if there is an active session
@@ -37,9 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         showScreen('auth-screen');
     }
-    
-    // Start notification background check
-    startNotificationService();
 });
 
 // Mock hour helper to allow manually testing time gates (e.g. ?mockHour=15)
@@ -261,9 +263,6 @@ function loginUser(username) {
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
     
-    // Request permission for push reminders
-    requestNotificationPermission();
-    
     // Initialize session state on load
     checkStatusAndLoadScreen();
 }
@@ -400,6 +399,9 @@ function startQuestionnaireFlow(forceEdit = false) {
     }
     
     let startStep = WIZARD_STEPS.LUNCH_HOME;
+    if (!forceEdit && existingData && existingData.lunch && existingData.lunch.home !== null) {
+        startStep = WIZARD_STEPS.DINNER_HOME;
+    }
     
     // All time gates are removed. When compiling, we go through both Lunch and Dinner.
     
@@ -529,8 +531,13 @@ function goToPrevWizardStep() {
 }
 
 function skipQuestionnaire() {
-    showScreen('dashboard-screen');
-    updateDashboard();
+    // Save any partial progress (like only Lunch compiled) before exiting to Dashboard
+    if (wizardState.answers && (wizardState.answers.lunch.home !== null || wizardState.answers.dinner.home !== null)) {
+        saveAndCompleteQuestionnaire();
+    } else {
+        showScreen('dashboard-screen');
+        updateDashboard();
+    }
 }
 
 function saveAndCompleteQuestionnaire() {
@@ -846,141 +853,7 @@ function renderSmartInsights(homeMealsPct, dishesWashedPct, homeMealsCount) {
     `;
 }
 
-/* ================= WEB PUSH NOTIFICATION SERVICE ================= */
-function requestNotificationPermission() {
-    if ("Notification" in window) {
-        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-        }
-    }
-}
-
-function triggerTestNotification() {
-    if (!("Notification" in window)) {
-        showInAppNotificationBanner("ChoreFlow Simulated Reminder 🧼", "It is 9:00 PM! Don't forget to track your home meals and dishes today.");
-        return;
-    }
-    
-    const title = "ChoreFlow Test Notification 🧼";
-    const options = {
-        body: "Success! Real push notification system is working correctly. You'll be reminded daily at 9:00 PM.",
-        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
-        badge: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
-        vibrate: [200, 100, 200]
-    };
-    
-    if (Notification.permission === "granted") {
-        sendRealNotification(title, options);
-    } else if (Notification.permission === "denied") {
-        showInAppNotificationBanner("Browser notifications are blocked. Simulated alert:", "Daily Reminder: Don't forget to track your home meals today!");
-    } else {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                sendRealNotification(title, options);
-            } else {
-                showInAppNotificationBanner("Notification permission request was denied.", "Daily Reminder: Don't forget to track your home meals today!");
-            }
-        });
-    }
-}
-
-function sendRealNotification(title, options) {
-    // 1. Try using Service Worker registration first (this works perfectly on mobile phones!)
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-            registration.showNotification(title, options)
-                .catch(err => {
-                    // Fall back to main thread new Notification if service worker fails
-                    try {
-                        new Notification(title, options);
-                    } catch (e) {
-                        showInAppNotificationBanner(title, options.body);
-                    }
-                });
-        });
-    } else {
-        // 2. Fall back to standard Notification constructor on desktop
-        try {
-            new Notification(title, options);
-        } catch (e) {
-            showInAppNotificationBanner(title, options.body);
-        }
-    }
-}
-
-function showInAppNotificationBanner(title, body) {
-    let banner = document.getElementById('in-app-notification-banner');
-    if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'in-app-notification-banner';
-        banner.innerHTML = `
-            <div class="banner-icon">
-                <i class="fa-solid fa-soap logo-icon"></i>
-            </div>
-            <div class="banner-content">
-                <div class="banner-title" id="banner-title-text"></div>
-                <div class="banner-body" id="banner-body-text"></div>
-            </div>
-        `;
-        document.body.appendChild(banner);
-    }
-    
-    document.getElementById('banner-title-text').textContent = title;
-    document.getElementById('banner-body-text').textContent = body;
-    
-    // Force a reflow to restart transition
-    banner.classList.remove('show');
-    banner.getBoundingClientRect();
-    
-    // Add class to trigger CSS animation slide down
-    banner.classList.add('show');
-    
-    // Remove after 5.0 seconds
-    setTimeout(() => {
-        banner.classList.remove('show');
-    }, 5000);
-}
-
-function startNotificationService() {
-    if (!("Notification" in window)) return;
-    
-    // Check local time every 30 seconds
-    setInterval(() => {
-        if (Notification.permission !== "granted" || !currentUser) return;
-        
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        
-        // 9:00 PM local time daily trigger
-        if (currentHour === 21 && currentMinute === 0) {
-            const todayStr = formatDateString(now);
-            const lastNotifiedDay = localStorage.getItem(`choreflow_last_notified_${currentUser.toLowerCase()}`);
-            
-            // Check if user was already reminded today to prevent repetitive banners in the same minute
-            if (lastNotifiedDay !== todayStr) {
-                const todayData = userResponses[todayStr];
-                
-                // If today is not fully completed
-                const isFullyLogged = todayData && 
-                                      todayData.lunch && todayData.lunch.home !== null && 
-                                      todayData.dinner && todayData.dinner.home !== null;
-                                      
-                if (!isFullyLogged) {
-                    sendRealNotification("ChoreFlow Reminder 🧼", {
-                        body: "It is 9:00 PM! Don't forget to track your home meals and dishes today.",
-                        icon: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
-                        badge: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/soap.svg",
-                        vibrate: [200, 100, 200]
-                    });
-                    
-                    // Mark as notified today
-                    localStorage.setItem(`choreflow_last_notified_${currentUser.toLowerCase()}`, todayStr);
-                }
-            }
-        }
-    }, 30000);
-}
+/* ================= WEB PUSH NOTIFICATION SERVICE REMOVED ================= */
 
 /* ================= SYSTEM RESET & DANGER ZONE ================= */
 function toggleSettingsPanel() {
