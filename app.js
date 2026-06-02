@@ -308,6 +308,20 @@ function checkStatusAndLoadScreen() {
     
     const existingData = userResponses[selectedDate];
     
+    // Manage "Clear Day" button state dynamically based on if logs exist
+    const clearDayBtn = document.getElementById('clear-day-btn');
+    if (clearDayBtn) {
+        if (existingData) {
+            clearDayBtn.disabled = false;
+            clearDayBtn.style.opacity = '1';
+            clearDayBtn.style.pointerEvents = 'auto';
+        } else {
+            clearDayBtn.disabled = true;
+            clearDayBtn.style.opacity = '0.35';
+            clearDayBtn.style.pointerEvents = 'none';
+        }
+    }
+    
     // We allow compiling the form at any time, both for lunch and dinner.
     // An entry is fully complete if both lunch and dinner answers are logged.
     const bothCompleted = existingData && 
@@ -380,6 +394,24 @@ function setDateFromPicker(dateVal) {
 
 function jumpToDate(dateStr) {
     selectedDate = dateStr;
+    checkStatusAndLoadScreen();
+}
+
+function clearSelectedDayLog() {
+    if (!currentUser) return;
+    
+    const displayDate = getFormattedDisplayDate(selectedDate);
+    if (!confirm(`Are you sure you want to clear all meal logs for ${displayDate}?`)) {
+        return;
+    }
+    
+    // Delete logs for selected date
+    delete userResponses[selectedDate];
+    
+    // Persist to local storage
+    localStorage.setItem(`choreflow_responses_${currentUser.toLowerCase()}`, JSON.stringify(userResponses));
+    
+    // Reload state and dashboard
     checkStatusAndLoadScreen();
 }
 
